@@ -1,0 +1,69 @@
+---
+title: "Visualisation and comparison of ChIP peaks between different datasets"
+author: "Cosette Schupfer"
+date: "04/08/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+#Load packages
+
+```{r, echo=FALSE, warning=FALSE}
+library(ChIPseeker)
+library(TxDb.Mmusculus.UCSC.mm10.knownGene)
+library(clusterProfiler)
+library(AnnotationDbi)
+library(EnsDb.Mmusculus.v79)
+library(magrittr)
+library(dplyr)
+library(org.Mm.eg.db)
+library(UpSetR)
+library(ggplot2)
+library(ggimage)
+```
+
+#assgn database used for annotation (mm10 is used here specifically for the genome for mus musculus)
+```{r}
+txdb <- TxDb.Mmusculus.UCSC.mm10.knownGene
+```
+
+#load datafiles (input: bed files from MACS output)
+```{r}
+#Get files
+files <-getSampleFiles()
+print(files)
+
+peak <- readPeakFile(files[[5]])
+```
+#Convert to genomic ranges
+GRanges is a package optimised for storing storing and manipulating genomic intervals along a genome. The code below also allows naming of datasets. 
+```{r}
+peak1 = GenomicRanges::GRangesList(GFoxg1_E14.5C1=readPeakFile(files[[3]]),
+                                GFoxg1_E14.5C2=readPeakFile(files[[4]]),
+                                BFoxg1_MNS=readPeakFile(files[[1]]),
+                                CFoxg1_E15.5C=readPeakFile(files[[2]]),
+                                SPax6_E12.5F=readPeakFile(files[[5]]))
+                        
+```
+#Heatmap of distribution of peaks relative to TSS. 
+Commonly, annotation of ChIP-peaks to likely regulatory genes is based on the assumption that transcription factor regulation occurs through binding to a cis-regulatory sequence close to the transcription start site of a gene. It is important to note that gene regulation often follows a more complex regulatory landscape. Here, we define the TSS region as 3000 pb upstream and downstream of the TSS of a gene. The heatmap gives a global evaluation of the density of peaks within the TSS region. Different colours were assigned to distinguish between datasets.  
+```{r}
+peakHeatmap(files[1:5], TxDb=txdb, upstream=3000, downstream=3000, color = c("magenta", "chocolate1", "seagreen2", "deeppink3", "mediumblue"))
+```
+#Average profile of ChIP peaks within TSS region 
+Similar to the heatmap visualisation, this allows comparison of the density of peaks near the TSS between datasets. 
+```{r}
+plotAvgProf2(files[1:5], TxDb=txdb, upstream=3000, downstream=3000,
+             xlab="Genomic Region (5'->3')", ylab = "Read Count Frequency") +  
+             scale_colour_manual(values = c("magenta", "chocolate1", "seagreen2", "deeppink3", "mediumblue"))
+```
+#Include confidence intervals
+Optionally, you may include confidence intervals calculcated through the bootstrapping method
+```{r}
+plotAvgProf2(files[1:5], TxDb=txdb, upstream=3000, downstream=3000, conf = 0.95, resample = 1000)+
+  scale_fill_manual(values = c("magenta", "chocolate1", "seagreen2", "deeppink3", "mediumblue"))
+```
+
