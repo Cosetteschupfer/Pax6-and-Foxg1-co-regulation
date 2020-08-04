@@ -1,0 +1,44 @@
+---
+title: "Binary matrix for confidence scoring"
+author: "Cosette Schupfer"
+date: "04/08/2020"
+output: html_document
+---
+
+Creating this matrix allowed calculation of the confidence scores for each of the genes. 
+#load data
+PAXFOXG1TARGETS is the list of 396 common genes established from overlapping the lists from 5 datasets. ALLDATASETS is a csv file containing all gene lists, separated by columns.
+```{r}
+PAX6FOXG1Targets <- read.csv("C:/Users/user/OneDrive/Documents/R/Confidence score/Foxg1Pax6Gene_Overlap.csv")
+ALLDATASETS <- read.csv("C:/Users/user/OneDrive/Documents/R/Confidence score/CFGENELIST.csv")
+```
+#Match the genes in PAX6FOXG1Targets to the genes in ALLDATASETS
+If the gene is features, the matrix returns 1, if not it returns 0. This facilitates simple summation of the scores to calculate the final confidence score
+```{r}
+PAX6FOXG1Targets$XPax6_E15.5F = 0
+PAX6FOXG1Targets$XPax6_E15.5F[PAX6FOXG1Targets$GENE %in% ALLDATASETS$ï..XPax6_E15.5F] <- 1
+
+PAX6FOXG1Targets$SPax6_E12.5NC = 0
+PAX6FOXG1Targets$SPax6_E12.5NC[PAX6FOXG1Targets$GENE %in% ALLDATASETS$SPax6_E12.5NC] <- 1
+
+PAX6FOXG1Targets$QU_Foxg1cKOvsWT = 0
+PAX6FOXG1Targets$QU_Foxg1cKOvsWT[PAX6FOXG1Targets$GENE %in% ALLDATASETS$QU_Foxg1cKOvsWT] <- 1
+
+PAX6FOXG1Targets$F_Foxg1HOMvsWT = 0
+PAX6FOXG1Targets$F_Foxg1HOMvsWT[PAX6FOXG1Targets$GENE %in% ALLDATASETS$F_Foxg1HOMvsWT] <- 1
+
+PAX6FOXG1Targets$N_Pax6KOvsWT = 0
+PAX6FOXG1Targets$N_Pax6KOvsWT[PAX6FOXG1Targets$GENE %in% ALLDATASETS$N_Pax6KOvsWT] <- 1
+
+PAX6FOXG1Targets$G_Pax6HOMvsWT = 0
+PAX6FOXG1Targets$G_Pax6HOMvsWT[PAX6FOXG1Targets$GENE %in% ALLDATASETS$G_Pax6HOMvsWT] <- 1
+
+PAX6FOXG1Targets$QU_Pax6cKOvsWT = 0
+PAX6FOXG1Targets$QU_Pax6cKOvsWT[PAX6FOXG1Targets$GENE %in% ALLDATASETS$QU_Pax6cKOvsWT] <- 1
+```
+#Write to file to get a csv file output
+```{r}
+#write to file
+write.csv(PAX6FOXG1Targets, "C:/Users/user/OneDrive/Documents/R/Confidence score/GeneBinaryMatrix.csv")
+```
+

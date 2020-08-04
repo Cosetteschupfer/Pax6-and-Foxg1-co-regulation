@@ -1,0 +1,22 @@
+---
+title: "Overlap Stats"
+author: "Cosette Schupfer"
+date: "04/08/2020"
+output: html_document
+---
+
+Very short outline of how I calculated overlap between gene lists using Fisher's exact test. This analysis was performed using the package 'GeneOverlap'.
+
+#Load package, load gene lists to compare, perform stats. 
+```{r}
+library(GeneOverlap)
+
+obj <- read.csv("C:/Users/user/OneDrive/Documents/R/ComparativeAnalysis/GeneLists/VennGeneList_Foxg1_Pax6.csv")
+
+go.obj <- newGeneOverlap(obj$ï..Foxg1, obj$Pax6)
+
+go.obj <- testGeneOverlap(go.obj)
+
+print(go.obj)
+```
+

@@ -1,0 +1,148 @@
+---
+title: "Gene annotation"
+author: "Cosette Schupfer"
+date: "28/05/2020"
+output:
+  html_document:
+    df_print: paged
+  pdf_document: default
+  word_document: default
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+#Gene annotation and Functional analysis
+Existing peak data outine genomic regions which are enriched in the number of reads for Foxg1. These enriched regions represent likely genomic binding sites. 
+We need to determine a list of peak coordinates and assign a likely gene target. Furthermore, we may also assess the biological and functional implications of these protein-DNA binding sites.
+
+#Peak Annotation 
+Many cis-regulatory elements are close to the TSS (transcriptional start sites) of their targets. It is hence common practice to associate each peak to its nearest gene (upstream or downstream).
+
+#Load libraries required 
+
+```{r, message=FALSE}
+# Load libraries
+library(ChIPseeker)
+library(TxDb.Mmusculus.UCSC.mm10.knownGene)
+library(clusterProfiler)
+library(AnnotationDbi)
+library(EnsDb.Mmusculus.v79)
+library(magrittr)
+library(dplyr)
+library(org.Mm.eg.db)
+
+```
+
+#Assign datafile and load data
+Peak annotation is generally performed on high confidence peak calls (after looking at concordance between replicates). Here, a *set of high confidence peak calls* using the full dataset will be used. These should  be obtained after IDR analysis (i.e. concordant peaks between replicates), and provided in BED format - optimal input for ChIPseeker package. 
+
+Move BED files into an assigned folder. To make the code usable for multiple BED files, assign study_name to the file so this will be the only thing to change when re-running the code for multiple data files. 
+
+```{r}
+#assign files
+study_name = "Pollard_Foxg1_ChIP_mm10"
+
+# Load data
+samplefile <- choose.files(default = paste0("C:/Users/user/OneDrive/Documents/R/Peak annotation/data/idr-bed/",study_name), caption = "Select files",
+                           multi = FALSE, filters = ".bed")
+names(samplefile)<- c(study_name)
+```
+
+#Assign annotation databases 
+These are generated from UCSC. Note that these will differ depending on the species of interest. This will have to be adjusted accordingly when installing packages in the beginning. Databases can be found at http://bioconductor.org/packages/3.5/data/annotation/. Make sure to scroll down to "TxDb" to find the appropriate object. 
+
+```{r}
+# Assign annotation database
+txdb <- TxDb.Mmusculus.UCSC.mm10.knownGene
+
+```
+
+#Annotation
+It is common for annotation tools to use nearest gene methods for assigning a peak to a gene. Here, the algorithm looks for the nearest TSS to the given genomic coordinates and annotates the peak with that gene. This can be misleading as binding sites might be located between two start sites of different genes. 
+
+The "annotatePeak" function (part of CHipseeker package) uses the nearest gene method described above but also provides parameters to specify a max distance from the TSS. For annotating genomic regions, "annotatePeak" will not only give the gene information but also reports detail information when genomic region is Exon or Intron. For instance, ‘Exon (uc002sbe.3/9736, exon 69 of 80)’, means that the peak overlaps with the 69th exon of the 80 exons that transcript uc002sbe.3 possess and the corresponding Entrez gene ID is 9736.
+
+To retrieve annotations for peak calls:
+```{r}
+#Annotation/annotate peak function
+peakAnnoList <- lapply(samplefile, annotatePeak , TxDb=txdb, tssRegion=c(-1000, 1000), verbose=FALSE)
+```
+
+looking at peakAnnoList, we can see that the peak annotations have been summarised based on genomic features:
+
+```{r}
+peakAnnoList
+```
+
+ChIPseeker provides several functions to visualise annotations using various plots:
+
+#Barchart of genomic feature representation
+```{r}
+#Visualise
+plotAnnoBar(peakAnnoList)
+```
+
+#Distribution of TF-binding loci relative to TSS
+```{r}
+plotDistToTSS(peakAnnoList, title="Distribution of transcription factor-binding loci \n relative to TSS")
+```
+
+#Write to file
+It would be useful to have the annotations for each peak call written to file, as it can be useful to browse data and subset calls of interest. Annotation info is stored in "peakAnnoList". So you can retrieve it like so: 
+```{r}
+#Retrieve file with annotations
+study_annot = paste0(study_name,"_annot")
+study_annot <- data.frame(peakAnnoList[[study_name]]@anno)
+
+```
+
+#Interpreting data frame
+You should see columns corresponding to input BED file and additional columns containing nearest gene(s), distance from peak to TSS of its nearest gene, genomic feature annotation of the peak etc. Some annotations may overlap, so ChIPseeker has adopted the following priority in how it lists information:
+-Promoter
+-5’ UTR
+-3’ UTR
+-Exon
+-Intron
+-Downstream (defined as the downstream of gene end)
+-Intergenic
+
+Gene identifiers are listed as EntrezIDs. To convert these into gene symbols, we can use "AnnotationDbi". This is an R package that provides an interface for connecting and querying various annotation databases using SQLite data storage.
+
+Here is a helpful document to reference when extracting data from any associated databases: https://bioconductor.org/packages/release/bioc/vignettes/AnnotationDbi/inst/doc/IntroToAnnotationPackages.pdf
+
+There are limited options as to what identifiers can be retrieved using the TxDb database with ChIPseeker:
+
+```{r}
+keytypes(TxDb.Mmusculus.UCSC.mm10.knownGene)
+```
+
+#Map to Gene symbols
+So to map the EntrezIDs to gene symbols, we'll use another database. For mice, there is an Ensembl based annotation package "EnsDb.Mmusculus.v79". 
+
+To map the EntrezID to gene symbols:
+```{r}
+#map EntrezID to gene symbols
+#Get the entrez IDs
+entrez <- study_annot$geneId
+
+# Return the gene symbol for the set of Entrez IDs
+annotations_edb <- AnnotationDbi::select(EnsDb.Mmusculus.v79,
+                                         keys = entrez,
+                                         columns = c("GENENAME"),
+                                         keytype = "ENTREZID")
+
+# Change IDs to character type to merge
+annotations_edb$ENTREZID <- as.character(annotations_edb$ENTREZID)
+
+# Write to file
+study_annot %>% 
+  left_join(annotations_edb, by=c("geneId"="ENTREZID")) %>% 
+  write.table(file= paste0("C:/Users/user/OneDrive/Documents/R/results/",study_name,"peakannotation.txt"), sep="\t", quote=F, row.names=F)
+```
+
+We now have .txt files with the appropriate gene symbols assigned to the peaks. 

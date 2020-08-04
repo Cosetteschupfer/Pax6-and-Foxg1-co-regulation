@@ -1,0 +1,57 @@
+---
+title: "Gene Overlap Analysis"
+author: "Cosette Schupfer"
+date: "04/08/2020"
+output: html_document
+---
+#Load packages
+```{r, message=FALSE, warning=FALSE}
+library("gdata")
+library("VennDiagram")
+library("gplots")
+```
+#load gene lists to compare
+```{r}
+geneLists <- read.csv("C:/Users/user/OneDrive/Documents/R/ComparativeAnalysis/GeneLists/VennGeneList_Foxg1_Pax6.csv")
+```
+#Convert data frame to separate gene lists with empty strings removed
+```{r}
+removeEMPTYstrings <- function(x) { newVectorWOstrings <- x[x != ""]
+  return(newVectorWOstrings)}
+
+geneLS <- lapply(as.list(geneLists), removeEMPTYstrings)
+
+```
+# Rename list vectors
+```{r}
+names(geneLS) <- c("Foxg1", "Pax6")
+```
+#Plot Venn Diagram and write to file
+```{r}
+VENN.LIST <- geneLS
+
+venn.diagram(VENN.LIST, filename = "C:/Users/user/OneDrive/Documents/R/ComparativeAnalysis/Pax6Foxg1Venn.tiff", 
+             fill=c("lightblue", "lavender"),
+             height = 3000, width = 3050, resolution =
+               500, imagetype = "tiff", units = "px", compression =
+               "lzw", na = "stop", main = "Pax6/Foxg1 Gene List Overlap", sub = NULL, main.pos
+             = c(0.5, 1.05), main.fontface = "plain",
+             main.fontfamily = "sans", main.col = "black",
+             main.cex = 1, main.just = c(0.5, 1), sub.pos = c(2, 1), 
+             sub.fontface = "plain", sub.fontfamily =
+               "sans", sub.col = "black", sub.cex = 1, sub.just =
+               c(1, 2), category.names = "none", force.unique =
+               TRUE, print.mode = "raw", sigdigs = 3, direct.area =
+               FALSE, area.vector = 0, hyper.test = FALSE, total.population = NULL, 
+             lower.tail = TRUE)
+```
+#retrieve list of genes in each Venn compartment
+```{r}
+a <- venn(VENN.LIST, show.plot=FALSE)
+str(a)
+
+inters <- attr(a,"intersections")
+Gene_Overlap <- inters$"Foxg1:Pax6"
+write.csv(Gene_Overlap, "C:/Users/user/OneDrive/Documents/R/ComparativeAnalysis/Foxg1Pax6Gene_Overlap.csv")
+```
+We now have a csv file with all the genes within that overlap compartment

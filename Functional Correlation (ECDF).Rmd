@@ -1,0 +1,165 @@
+---
+title: "Functional correlation (ECDF)"
+author: "Cosette Schupfer"
+date: "04/08/2020"
+output: html_document
+---
+#load packages
+```{r, message=FALSE, warning=FALSE}
+library(ggplot2)
+library(dplyr)
+```
+
+#load individual gene lists and list of differentially expressed genes with associated p-values and FC
+```{r}
+Foxg1_DEGs <- read.csv("C:/Users/user/OneDrive/Documents/R/ECDF/Foxg1/Foxg1_DEGs.csv")
+Godbole1_GeneList <- read.csv("C:/Users/user/OneDrive/Documents/R/ECDF/Foxg1/Godbole_Foxg1_01genenamelist.csv")
+Godbole2_GeneList <- read.csv("C:/Users/user/OneDrive/Documents/R/ECDF/Foxg1/Godbole_Foxg1_02genenamelist.csv")
+Pollard_GeneList <- read.csv("C:/Users/user/OneDrive/Documents/R/ECDF/Foxg1/Pollard_Foxg1_ChIP_mm10genenamelist.csv")
+Soo_GeneList <- read.csv("C:/Users/user/OneDrive/Documents/R/ECDF/Foxg1/Soo_Foxg1_Genenamelist.csv")
+intercept_gene_list <- read.csv("C:/Users/user/OneDrive/Documents/R/ECDF/Foxg1/Foxg1_Gene_Overlap.csv")
+```
+
+#optional: add a FC cut-off if interested in just up- or downregulated genes. 
+Leave this part out if interested in correlating against both up- and downregulated genes. Also limit to signficantly differentially expressed genes only (p<0.05) 
+```{r}
+Foxg1_DEGs <- filter(Foxg1_DEGs,log2FoldChange<0)
+```
+
+#Add 'all genes' category as negative control, assign dataset names
+```{r}
+Foxg1_DEGs <- filter(Foxg1_DEGs,log2FoldChange<0)
+Foxg1_df <- Foxg1_DEGs
+Foxg1_df$Foxg1_target <- "All Genes"
+
+tmp <- Foxg1_DEGs
+tmp$Foxg1_target[tmp$GENENAME %in% Godbole1_GeneList$GENENAME] <- "GFoxg1_E14.5C1"
+tmp <- tmp[complete.cases(tmp), ]
+Foxg1_df <- rbind(Foxg1_df, tmp)
+
+tmp <- Foxg1_DEGs
+tmp$Foxg1_target[tmp$GENENAME %in% Godbole2_GeneList$GENENAME] <- "GFoxg1_E14.5C2"
+tmp <- tmp[complete.cases(tmp), ]
+Foxg1_df <- rbind(Foxg1_df, tmp)
+
+tmp <- Foxg1_DEGs
+tmp$Foxg1_target[tmp$GENENAME %in% Pollard_GeneList$GENENAME] <- "BFoxg1_MNS"
+tmp <- tmp[complete.cases(tmp), ]
+Foxg1_df <- rbind(Foxg1_df, tmp)
+
+tmp <- Foxg1_DEGs
+tmp$Foxg1_target[tmp$GENENAME %in% Soo_GeneList$GENENAME] <- "CFoxg1_E15.5C"
+tmp <- tmp[complete.cases(tmp), ]
+Foxg1_df <- rbind(Foxg1_df, tmp)
+
+tmp <- Foxg1_DEGs
+tmp$Foxg1_target[tmp$GENENAME %in% intercept_gene_list$GENENAME] <- "Overlapping Genes"
+tmp <- tmp[complete.cases(tmp), ]
+Foxg1_df <- rbind(Foxg1_df, tmp)
+
+```
+
+##Also optional: if DEG list is in wrong format, e.g. Gene list is in ENSEMBL ID, here is some code to convert it to gene symbols: 
+
+```{r, message=FALSE}
+##Convert ENSEMBLID to genelist
+library(magrittr)
+library(dplyr)
+library(org.Mm.eg.db)
+
+#Retrieve file
+study_annot <- read.table("C:/Users/user/OneDrive/Documents/R/ECDF/Foxg1/Franz_RNAseq/DEGsWTvsHOM.txt", header = TRUE, fill = TRUE)
+
+#map EntrezID to gene symbols
+#Get the entrez IDs
+ensembl <- study_annot$Gene
+
+# Return the gene symbol for the set of ENSEMBL IDs
+annotations_edb <- AnnotationDbi::select(org.Mm.eg.db,
+                                         keys = ensembl,
+                                         columns = "ALIAS",
+                                         keytype = "ENSEMBL")
+
+# Change IDs to character type to merge
+annotations_edb$ENSEMBL <- as.character(annotations_edb$ENSEMBL)
+
+# Write to file
+Ensembl_annot <- study_annot %>% 
+  left_join(annotations_edb, by=c("Gene"="ENSEMBL"))
+
+#Do not write to file as this converts gene symbols to dates
+```
+
+#Then repeat as above
+```{r, warning=FALSE}
+Foxg1_DEGs1 <- Ensembl_annot
+Foxg1_DEGsP <- filter(Foxg1_DEGs1, PValue < 0.05)
+Foxg1_DEGsP <- filter(Foxg1_DEGsP,logFC<0)
+library(dbplyr)
+Foxg1_DEGsP <- distinct(Foxg1_DEGsP, Gene, .keep_all = TRUE)
+
+Godbole1_GeneList <- read.csv("C:/Users/user/OneDrive/Documents/R/ECDF/Foxg1/Godbole_Foxg1_01genenamelist.csv")
+Godbole2_GeneList <- read.csv("C:/Users/user/OneDrive/Documents/R/ECDF/Foxg1/Godbole_Foxg1_02genenamelist.csv")
+Pollard_GeneList <- read.csv("C:/Users/user/OneDrive/Documents/R/ECDF/Foxg1/Pollard_Foxg1_ChIP_mm10genenamelist.csv")
+Soo_GeneList <- read.csv("C:/Users/user/OneDrive/Documents/R/ECDF/Foxg1/Soo_Foxg1_Genenamelist.csv")
+intercept_gene_list <- read.csv("C:/Users/user/OneDrive/Documents/R/ECDF/Foxg1/Foxg1_Gene_Overlap.csv")
+
+Foxg1_df1 <- Foxg1_DEGsP
+Foxg1_df1$Foxg1_target <- "All Genes"
+
+tmp <- Foxg1_DEGsP
+tmp$Foxg1_target[tmp$ALIAS %in% Godbole1_GeneList$GENENAME] <- "GFoxg1_E14.5C1"
+tmp <- tmp[complete.cases(tmp), ]
+Foxg1_df1 <- rbind(Foxg1_df1, tmp)
+
+tmp <- Foxg1_DEGsP
+tmp$Foxg1_target[tmp$ALIAS %in% Godbole2_GeneList$GENENAME] <- "GFoxg1_E14.5C2"
+tmp <- tmp[complete.cases(tmp), ]
+Foxg1_df1 <- rbind(Foxg1_df1, tmp)
+
+tmp <- Foxg1_DEGsP
+tmp$Foxg1_target[tmp$ALIAS %in% Pollard_GeneList$GENENAME] <- "BFoxg1_MNS"
+tmp <- tmp[complete.cases(tmp), ]
+Foxg1_df1 <- rbind(Foxg1_df1, tmp)
+
+tmp <- Foxg1_DEGsP
+tmp$Foxg1_target[tmp$ALIAS %in% Soo_GeneList$GENENAME] <- "CFoxg1_E15.5C"
+tmp <- tmp[complete.cases(tmp), ]
+Foxg1_df1 <- rbind(Foxg1_df1, tmp)
+
+tmp <- Foxg1_DEGsP
+tmp$Foxg1_target[tmp$ALIAS %in% intercept_gene_list$GENENAME] <- "Overlapping Genes"
+tmp <- tmp[complete.cases(tmp), ]
+Foxg1_df1 <- rbind(Foxg1_df1, tmp)
+```
+#plot graphs on common figure
+including personalised theme is optional
+```{r}
+library(RColorBrewer)
+
+cosette_theme <- theme(panel.background=element_blank(),
+                     panel.border=element_rect(color="white", fill=NA),
+                     legend.position="right",
+                     axis.text = element_text(size=12),
+                     axis.title= element_text(size=14),
+                     plot.title = element_text(hjust = 0.5)) #Make Title centre
+#By log10(pvalue)
+plot1 = ggplot(Foxg1_df, aes(x=log10(padj), group=Foxg1_target, colour=Foxg1_target, size = Foxg1_target))+
+  scale_size_manual(values = c(1,1,1,1,1,1))+
+  stat_ecdf()+coord_cartesian(xlim=c(-10,-1))+cosette_theme+
+  ggtitle("QU_Foxg1cKOvsWT Downregulated genes ECDF Plot")+
+  labs(y="Proportion of genes")+
+  scale_color_brewer(palette="Dark2")
+
+plot2 = ggplot(Foxg1_df1, aes(x=log10(PValue), group=Foxg1_target, colour=Foxg1_target, size = Foxg1_target))+
+  scale_size_manual(values = c(1,1,1,1,1,1))+
+  stat_ecdf()+coord_cartesian(xlim=c(-10,-1))+cosette_theme+
+  ggtitle("F_Foxg1HOMvsWT Downregulated genes ECDF Plot")+
+  labs(y="Proportion of genes")+
+  scale_color_brewer(palette="Dark2")
+
+library(gridExtra)
+plot = grid.arrange(plot1, plot2, nrow = 1)
+
+```
+
